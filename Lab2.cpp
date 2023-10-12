@@ -1,11 +1,13 @@
-﻿#include <iostream>
+#include <iostream>
 #include <thread>
 #include <chrono>
 
 using namespace std;
 
 int arraySize;
-int* array;
+int* arr;
+
+int main();
 
 void findMinMax();
 void findAverage();
@@ -15,11 +17,11 @@ int main() {
     cout << "Enter array size: ";
     cin >> arraySize;
 
-    array = new int[arraySize];
+    arr = new int[arraySize];
 
     for (int i = 0; i < arraySize; i++) {
         cout << "Enter element " << i << ": ";
-        cin >> array[i];
+        cin >> arr[i];
     }
 
     thread minMaxThread(findMinMax);
@@ -34,12 +36,12 @@ int main() {
 
     // get results from threads
 
-    array[min] = average;
-    array[max] = average;
+    arr[min] = average;
+    arr[max] = average;
 
     cout << "Modified array: ";
     for (int i = 0; i < arraySize; i++) {
-        cout << array[i] << " ";
+        cout << arr[i] << " ";
     }
     cout << endl;
 
@@ -48,16 +50,16 @@ int main() {
 
 void findMinMax() {
 
-    int min = array[0];
-    int max = array[0];
+    int min = arr[0];
+    int max = arr[0];
 
     for (int i = 1; i < arraySize; i++) {
 
-        if (array[i] < min) {
-            min = array[i];
+        if (arr[i] < min) {
+            min = arr[i];
         }
-        if (array[i] > max) {
-            max = array[i];
+        if (arr[i] > max) {
+            max = arr[i];
         }
 
         this_thread::sleep_for(chrono::milliseconds(500));
@@ -74,7 +76,7 @@ void findAverage() {
 
     for (int i = 0; i < arraySize; i++) {
 
-        sum += array[i];
+        sum += arr[i];
 
         this_thread::sleep_for(chrono::milliseconds(12));
     }
