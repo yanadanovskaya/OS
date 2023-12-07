@@ -1,4 +1,4 @@
-﻿#include "Employee.h"
+﻿﻿#include "Employee.h"
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 		output << "Report to the file " << inputName << "\n";
 
 		output << "NUMBER\tNAME\tHOURS\tSALARY\n";
-		
+
 	}
 	else {
 		return -1;

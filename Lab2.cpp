@@ -1,88 +1,95 @@
+﻿
 #include <iostream>
-#include <thread>
-#include <chrono>
+#include <vector>
+#include <windows.h>
+#include <algorithm>
 
-using namespace std;
+// Глобальные переменные
+HANDLE hMinMaxThread;
+HANDLE hAverageThread;
 
-int arraySize;
-int* arr;
+// Функция потока min max
+DWORD WINAPI minMaxThread(LPVOID lpParam) {
+    std::vector<int>& numbers = *static_cast<std::vector<int>*>(lpParam);
 
-int main();
+    int minVal = numbers[0];
+    int maxVal = numbers[0];
 
-void findMinMax();
-void findAverage();
+    for (const auto& num : numbers) {
+        if (num < minVal) {
+            minVal = num;
+        }
+        Sleep(7);
+        if (num > maxVal) {
+            maxVal = num;
+        }
 
-int main() {
-
-    cout << "Enter array size: ";
-    cin >> arraySize;
-
-    arr = new int[arraySize];
-
-    for (int i = 0; i < arraySize; i++) {
-        cout << "Enter element " << i << ": ";
-        cin >> arr[i];
+        Sleep(7);
     }
-
-    thread minMaxThread(findMinMax);
-    thread averageThread(findAverage);
-
-    minMaxThread.join();
-    averageThread.join();
-
-    int min = 0;
-    int max = 0;
-    double average = 0;
-
-    // get results from threads
-
-    arr[min] = average;
-    arr[max] = average;
-
-    cout << "Modified array: ";
-    for (int i = 0; i < arraySize; i++) {
-        cout << arr[i] << " ";
-    }
-    cout << endl;
+    
+    std::cout << "\nМинимальное значение: " << minVal << std::endl;
+    std::cout << "Максимальное значение: " << maxVal << std::endl;
 
     return 0;
 }
 
-void findMinMax() {
+// Функция потока average
+DWORD WINAPI averageThread(LPVOID lpParam) {
+    std::vector<int>& numbers = *static_cast<std::vector<int>*>(lpParam);
 
-    int min = arr[0];
-    int max = arr[0];
+    double sum = 0.0;
 
-    for (int i = 1; i < arraySize; i++) {
-
-        if (arr[i] < min) {
-            min = arr[i];
-        }
-        if (arr[i] > max) {
-            max = arr[i];
-        }
-
-        this_thread::sleep_for(chrono::milliseconds(500));
+    for (const auto& num : numbers) {//конст ссылка
+        sum += num;
+        Sleep(12);
     }
 
-    cout << "Min: " << min << endl;
-    cout << "Max: " << max << endl;
+    double average = sum / numbers.size();
+    std::cout << "\nСреднее значение: " << average << std::endl;
 
+    return 0;
 }
 
-void findAverage() {
+int main() {
+    // Ввод размерности массива
+    int arraySize;
+    setlocale(LC_ALL, "Rus");
+    std::cout << "Введите размерность массива: ";
+    std::cin >> arraySize;
+    
 
-    int sum = 0;
-
-    for (int i = 0; i < arraySize; i++) {
-
-        sum += arr[i];
-
-        this_thread::sleep_for(chrono::milliseconds(12));
+    // Ввод элементов массива
+    std::vector<int> numbers(arraySize);
+    for (int i = 0; i < arraySize; ++i) {
+        std::cout << "Введите элементы массива: " << i << ": ";
+        std::cin >> numbers[i];
     }
 
-    double average = static_cast<double>(sum) / arraySize;
+    // Создание потоков min max и average
+    hMinMaxThread = CreateThread(NULL, 0, minMaxThread, &numbers, 0, NULL);
+    hAverageThread = CreateThread(NULL, 0, averageThread, &numbers, 0, NULL);
 
-    cout << "Average: " << average << endl;
+    // Ожидание завершения потоков min max и average
+    WaitForSingleObject(hMinMaxThread, INFINITE);
+    WaitForSingleObject(hAverageThread, INFINITE);
 
+    // Замена максимального и минимального элементов на среднее значение
+    auto minMaxIt = std::minmax_element(numbers.begin(), numbers.end());
+    double averageVal = (static_cast<double>(*minMaxIt.first) + *minMaxIt.second) / 2;
+    *minMaxIt.first = static_cast<int>(averageVal);
+    *minMaxIt.second = static_cast<int>(averageVal);
+
+    // Вывод результатов
+    std::cout << "\nВидоизменённый массив: ";
+    for (const auto& num : numbers) {
+        std::cout << num << " ";
+    }
+    std::cout << std::endl;
+
+    // Закрытие дескрипторов потоков
+    CloseHandle(hMinMaxThread);
+    CloseHandle(hAverageThread);
+
+    return 0;
 }
+

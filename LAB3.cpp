@@ -1,21 +1,23 @@
 ﻿#include <iostream>
 #include <vector>
 #include <windows.h>
+#include <mutex>
 
 using namespace std;
-
-// Структура данных для передачи параметров в поток marker
+HANDLE hMutex;
 struct MarkerThreadData
 {
-    int index;     // Порядковый номер потока marker
-    int* arr;    // Указатель на массив
-    int size;      // Размерность массива
-    HANDLE startEvent;     // Событие для начала работы потока marker
-    HANDLE continueEvent;  // Событие для продолжения работы потока marker
-    HANDLE stopEvent;      // Событие для завершения работы потока marker
+    int index;     
+    int* arr;    
+    int size;      
+   
+    bool flag = false;
+    HANDLE startEvent;     
+    HANDLE continueEvent;  
+    HANDLE stopEvent;      
 };
 
-// Функция потока marker
+
 DWORD WINAPI MarkerThread(LPVOID lpParam)
 {
     MarkerThreadData* data = (MarkerThreadData*)lpParam;
@@ -25,35 +27,43 @@ DWORD WINAPI MarkerThread(LPVOID lpParam)
     HANDLE startEvent = data->startEvent;
     HANDLE continueEvent = data->continueEvent;
     HANDLE stopEvent = data->stopEvent;
+    int a=0;
+    //mutex mtx;
 
-    // Ожидание сигнала от потока main для начала работы
+ 
     WaitForSingleObject(startEvent, INFINITE);
 
-    srand(index); // Инициализация генератора случайных чисел
+    srand(index); 
 
     while (true)
     {
-        int randomNumber = rand();
-        int indexToMark = randomNumber % size;
-
+        int randomNum = rand();
+        int indexToMark = randomNum % size;
+        //mutex enter;
+        WaitForSingleObject(hMutex, INFINITE);
         if (array[indexToMark] == 0)
         {
             Sleep(5);
             array[indexToMark] = index;
+            a++;
             Sleep(5);
+            ReleaseMutex(hMutex);
+           
         }
         else
         {
-            cout << "Поток marker " << index << " пометил " << array[index] << " элементов." << endl;
+            //mtx.unlock();
+            ReleaseMutex(hMutex);
+            cout << "Поток marker " << index << " пометил " <<a<< array[index] << " элементов." << endl;
             cout << "Невозможно пометить элемент с индексом " << indexToMark << "." << endl;
 
-            // Посылка сигнала потоку main о невозможности продолжения работы
+            // Cигнал потоку main о невозможности продолжения работы
             SetEvent(stopEvent);
 
             // Ожидание ответного сигнала от потока main для продолжения или завершения работы
-            DWORD result = WaitForSingleObject(continueEvent, INFINITE);
+            WaitForSingleObject(continueEvent, INFINITE);
 
-            if (result == WAIT_OBJECT_0 + 1) // Получен сигнал на завершение работы
+            if (data->flag == true) // Получен сигнал на завершение работы
             {
                 // Заполнение нулями помеченных элементов в массиве
                 for (int i = 0; i < size; i++)
@@ -67,6 +77,7 @@ DWORD WINAPI MarkerThread(LPVOID lpParam)
                 break; // Завершение работы потока marker
             }
         }
+        //mtx.unlock();
     }
 
     return 0;
@@ -78,7 +89,7 @@ int main()
     int size;
     cout << "Введите размерность массива: ";
     cin >> size;
-
+    hMutex = OpenMutex(SYNCHRONIZE, FALSE, L"DemoMutex");
     // Захват памяти под массив целых чисел и инициализация элементов нулями
     int* array = new int[size]();
 
@@ -98,9 +109,9 @@ int main()
     for (int i = 0; i < numMarkers; i++)
     {
         // Создание событий для каждого потока marker
-        startEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
-        continueEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
-        stopEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
+        startEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
+        continueEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
+        stopEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
 
         // Подготовка данных для каждого потока marker
         markerThreadData[i].index = i;
@@ -112,76 +123,79 @@ int main()
 
         // Запуск потока marker
         markerThreads[i] = CreateThread(NULL, 0, MarkerThread, &markerThreadData[i], 0, NULL);
+    }
         // Дать сигнал на начало работы всем потокам marker
+    for (int i = 0; i < numMarkers; i++)
+    {
+        SetEvent(startEvents[i]);
+    }
+
+    while (true)
+    {
+        for (int i = 0; i < numMarkers; i++)
+            if (markerThreadData[i].flag == true) SetEvent(stopEvents[i]);
+        // Ждать, пока все потоки marker не подадут сигналы о невозможности продолжения своей работы
+        DWORD result = WaitForMultipleObjects(numMarkers, stopEvents, TRUE, INFINITE);
+
+        // Вывести содержимое массива на консоль
+        for (int i = 0; i < size; i++)
+        {
+            cout << array[i] << " ";
+        }
+        cout << endl;
+            
+        int markerIndex;
+        cout << "Введите порядковый номер потока marker, которому будет подан сигнал на завершение: ";
+        cin >> markerIndex;
+
+        // Подать потоку marker, номер которого получен, сигнал на завершение работы
+        markerThreadData[markerIndex].flag = true;
+        SetEvent(continueEvents[markerIndex]);
+
+        // Ждать завершение работы потока marker
+        WaitForSingleObject(markerThreads[markerIndex], INFINITE);
+
+        // Вывести содержимое массива на консоль
+        for (int i = 0; i < size; i++)
+        {
+            cout << array[i] << " ";
+        }
+        cout << endl;
+
+        // Подать сигнал на продолжение работы оставшимся потокам marker
         for (int i = 0; i < numMarkers; i++)
         {
-            SetEvent(startEvents[i]);
+            if (i != markerIndex)
+            {
+                SetEvent(continueEvents[i]);
+            }
         }
 
-        while (true)
+        // Проверить, завершились ли все потоки marker
+        DWORD exitCode;
+        bool allThreadsExited = true;
+
+        for (int i = 0; i < numMarkers; i++)
         {
-            // Ждать, пока все потоки marker не подадут сигналы о невозможности продолжения своей работы
-            DWORD result = WaitForMultipleObjects(numMarkers, stopEvents, TRUE, INFINITE);
-
-            // Вывести содержимое массива на консоль
-            for (int i = 0; i < size; i++)
+            GetExitCodeThread(markerThreads[i], &exitCode);
+            if (exitCode == STILL_ACTIVE)
             {
-                cout << array[i] << " ";
-            }
-            cout << endl;
-
-            int markerIndex;
-            cout << "Введите порядковый номер потока marker, которому будет подан сигнал на завершение: ";
-            cin >> markerIndex;
-
-            // Подать потоку marker, номер которого получен, сигнал на завершение работы
-            SetEvent(stopEvents[markerIndex]);
-
-            // Ждать завершение работы потока marker
-            WaitForSingleObject(markerThreads[markerIndex], INFINITE);
-
-            // Вывести содержимое массива на консоль
-            for (int i = 0; i < size; i++)
-            {
-                cout << array[i] << " ";
-            }
-            cout << endl;
-
-            // Подать сигнал на продолжение работы оставшимся потокам marker
-            for (int i = 0; i < numMarkers; i++)
-            {
-                if (i != markerIndex)
-                {
-                    SetEvent(continueEvents[i]);
-                }
-            }
-
-            // Проверить, завершились ли все потоки marker
-            DWORD exitCode;
-            bool allThreadsExited = true;
-
-            for (int i = 0; i < numMarkers; i++)
-            {
-                GetExitCodeThread(markerThreads[i], &exitCode);
-                if (exitCode == STILL_ACTIVE)
-                {
-                    allThreadsExited = false;
-                    break;
-                }
-            }
-
-            if (allThreadsExited)
-            {
-                break; // Завершение работы потока main
+                allThreadsExited = false;
+                break;
             }
         }
 
-        // Освобождение ресурсов
-        delete[] array;
-        delete[] startEvents;
-        delete[] continueEvents;
-        delete[] stopEvents;
+        if (allThreadsExited)
+        {
+            break; // Завершение работы потока main
+        }
+    }
 
-        return 0;
-    }
-    }
+    // Освобождение ресурсов
+    delete[] array;
+    delete[] startEvents;
+    delete[] continueEvents;
+    delete[] stopEvents;
+    return 0;
+}
+    

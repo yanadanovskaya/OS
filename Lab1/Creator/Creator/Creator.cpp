@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 		for (int i = 0; i < n; i++) {
 			std::cout << "Enter employee" << std::endl;
 			std::cin >> empl.num >> empl.name >> empl.hours;
-			file.write((char*)&empl,n);
+			file.write((char*)&empl, n);
 		}
 	}
 	file.close();
