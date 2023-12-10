@@ -1,141 +1,95 @@
-﻿#include <iostream>
-#include <string>
-#include <vector>
+﻿#include <fstream>
+#include <iostream>
 #include <windows.h>
-
-const int MAX_MESSAGE_LENGTH = 20;
-
-void senderProcess(const std::string& messageFile) {
-    std::string message;
-    std::cout << "Введите сообщение для передачи (максимум " << MAX_MESSAGE_LENGTH << " символов): ";
-    std::cin.ignore();
-    std::getline(std::cin, message);
-
-    // Открываем событие для сигнализации готовности
-    HANDLE eventHandle = OpenEvent(EVENT_MODIFY_STATE, FALSE, L"MessageEvent");
-    if (eventHandle == NULL) {
-        std::cerr << "Ошибка открытия события" << std::endl;
-        exit(1);
-    }
-
-    int messageLength = message.length();
-    if (messageLength > MAX_MESSAGE_LENGTH) {
-        messageLength = MAX_MESSAGE_LENGTH;
-    }
-    message.resize(MAX_MESSAGE_LENGTH, ' ');
-    HANDLE fileHandle = CreateFile(messageFile.c_str(), GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (fileHandle == INVALID_HANDLE_VALUE) {
-        std::cerr << "Ошибка создания/открытия файла" << std::endl;
-        CloseHandle(eventHandle);
-        exit(1);
-    }
-    DWORD bytesWritten;
-    WriteFile(fileHandle, message.c_str(), MAX_MESSAGE_LENGTH, &bytesWritten, NULL);
-    CloseHandle(fileHandle);
-
-    // Сигнализируем о готовности
-    SetEvent(eventHandle);
-
-    CloseHandle(eventHandle);
-}
-
-void receiverProcess(const std::string& messageFile, int messageCount) {
-
-    HANDLE fileHandle = CreateFile(messageFile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (fileHandle == INVALID_HANDLE_VALUE) {
-        std::cerr << "Ошибка создания файла" << std::endl;
-        exit(1);
-    }
-    DWORD bytesWritten;
-    std::string emptyMessage(MAX_MESSAGE_LENGTH, ' ');
-    for (int i = 0; i < messageCount; ++i) {
-        WriteFile(fileHandle, emptyMessage.c_str(), MAX_MESSAGE_LENGTH, &bytesWritten, NULL);
-    }
-    CloseHandle(fileHandle);
-
-    // событие для сигнализации готовности
-    HANDLE eventHandle = CreateEvent(NULL, TRUE, FALSE, L"MessageEvent");
-    if (eventHandle == NULL) {
-        std::cerr << "Ошибка создания события" << std::endl;
-        exit(1);
-    }
-
-    while (true) {
-        char command;
-        std::cout << "Введите команду (r - чтение сообщения, q - завершение работы): ";
-        std::cin >> command;
-
-        if (command == 'r') {
-            // Ожидаем событие готовности
-            WaitForSingleObject(eventHandle, INFINITE);
-
-            fileHandle = CreateFile(messageFile.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-            if (fileHandle == INVALID_HANDLE_VALUE) {
-                std::cerr << "Ошибка открытия файла" << std::endl;
-                CloseHandle(eventHandle);
-                exit(1);
-            }
-            std::string message;
-            DWORD bytesRead;
-            for (int i = 0; i < messageCount; ++i) {
-                ReadFile(fileHandle, &message[0], MAX_MESSAGE_LENGTH, &bytesRead, NULL);
-                if (bytesRead > 0) {
-                    std::cout << "Прочитано сообщение: " << message << std::endl;
-                }
-                else {
-                    std::cout << "Бинарный файл пуст." << std::endl;
-                    break;
-                }
-            }
-            CloseHandle(fileHandle);
-        }
-        else if (command == 'q') {
-   
-            CloseHandle(eventHandle);
-            break;
-        }
-        else {
-            std::cout << "Неверная команда. Повторите попытку.";
-        }
-    }
-}
+#include <conio.h>
+#include <string>
 
 int main() {
-    std::string messageFile;
-    int messageCount;
-    int senderCount;
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    LPWSTR lpwstr;
+    
+    std::string fileName;
+    std::fstream file;
+    int number_of_records;
+    int number_of_senderpr;
 
-    std::cout << "Введите имя бинарного файла: ";
-    std::cin >> messageFile;
+    std::cout << "Enter the name of the binary file:\n";
+    std::cin >> fileName;    
+    std::cout << "Enter the number of records in the binary file:\n";
+    std::cin >> number_of_records;
+    file.open(fileName, std::ios::out);
+    file.close();
 
-    std::cout << "Введите количество записей в бинарном файле: ";
-    std::cin >> messageCount;
+    std::cout << "Enter the number of Sender processes:\n";
+    std::cin >> number_of_senderpr;
+    
 
-    std::cout << "Введите количество процессов Sender: ";
-    std::cin >> senderCount;
+    HANDLE hSemaphore1 = CreateSemaphore(NULL, 0, number_of_records, L"Semaphore1");
+    if (hSemaphore1 == NULL)
+        return GetLastError();
+    HANDLE hSemaphore2 = CreateSemaphore(NULL, 0, number_of_records, L"Semaphore2");
+    if (hSemaphore2 == NULL)
+        return GetLastError();
+    HANDLE hMutex = CreateMutex(NULL, TRUE, L"DemoMutex");
+   /* HANDLE* hEventStarted = new HANDLE[number_of_senderpr];*/
 
-    // Запускаем процессы Sender
-    std::vector<PROCESS_INFORMATION> senderProcesses(senderCount);
-    for (int i = 0; i < senderCount; ++i) {
-        std::string commandLine = "SenderProcess.exe " + messageFile;
-        STARTUPINFO startupInfo;
-        ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
-        startupInfo.cb = sizeof(STARTUPINFO);
-        if (!CreateProcess(NULL, &commandLine[0], NULL, NULL, FALSE, 0, NULL, NULL, &startupInfo, &senderProcesses[i])) {
-            std::cerr << "Ошибка создания процесса Sender" << std::endl;
-            exit(1);
+    for (int i = 0; i < number_of_senderpr; ++i)
+    {
+        std::string senderName = "C:\\Users\\Yana\\source\\OP\\Lab4\\Receiver\\x64\\Debug\\Sender.exe " + fileName;
+        std::wstring converting_to_lpwstr = std::wstring(senderName.begin(), senderName.end());
+        lpwstr = &converting_to_lpwstr[0];
+        ZeroMemory(&si, sizeof(STARTUPINFO));
+        si.cb = sizeof(STARTUPINFO);
+        if (!CreateProcess(NULL, lpwstr, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+            std::cout << "Sender process isn't started.\n";
+            return GetLastError();
+        }
+       /* hEventStarted[i] = CreateEvent(NULL, FALSE, FALSE, L"event"+i);
+        if (hEventStarted[i] == NULL) {
+            return GetLastError();
+            CloseHandle(pi.hProcess);
+        }*/
+    }
+
+    /*WaitForMultipleObjects(number_of_senderpr, hEventStarted, TRUE, INFINITE);*/
+    ReleaseMutex(hMutex);
+    
+    int counter = 0;
+    file.open(fileName, std::ios::in);
+
+    while (true) {
+        std::cout << "\nEnter 1 to read the message\nEnter 0 to exit the process\n";
+        int j;
+       
+        std::cin >> j;
+        if (j == 1) {
+            std::string msg;
+            WaitForSingleObject(hSemaphore1, INFINITE);
+            WaitForSingleObject(hMutex, INFINITE);
+            std::getline(file, msg);
+            std::cout << msg;
+            ReleaseSemaphore(hSemaphore2, 1, NULL);
+            ReleaseMutex(hMutex);
+         
+            /*std::cin >> j;
+            std::cout << "\nEnter 1 to read the message\nEnter 0 to exit the process\n";           */ 
+        }
+        if (j != 0 && j != 1) {
+            std::cin >> j;
+            std::cout << "\nIncorrect value!\n";
+        }
+        if (j == 0) {
+            std::cout << "The process has completed.";
+            break;
         }
     }
-
-    // Запускаем процесс Receiver
-    receiverProcess(messageFile, messageCount);
-
-    // Ожидаем завершения процессов Sender
-    for (int i = 0; i < senderCount; ++i) {
-        WaitForSingleObject(senderProcesses[i].hProcess, INFINITE);
-        CloseHandle(senderProcesses[i].hProcess);
-        CloseHandle(senderProcesses[i].hThread);
-    }
+    CloseHandle(hSemaphore1);
+    CloseHandle(hSemaphore2);
+    /*for (int i = 0; i < number_of_senderpr; i++)
+    {
+        CloseHandle(hEventStarted[i]);
+    }*/
 
     return 0;
 }
