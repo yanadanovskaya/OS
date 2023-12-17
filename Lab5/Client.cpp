@@ -4,13 +4,13 @@
 
 struct employee
 {
-    int num; 
-    char name[10]; 
-    double hours; 
+    int num;
+    char name[10];
+    double hours;
 };
 
 int main(int argc, char* argv) {
-    HANDLE hStartEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, L"Process");
+    HANDLE hStartEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, L"Event");
     if (hStartEvent == NULL)
     {
         std::cout << "Failed to open event. \nPress any key to exit.\n";
@@ -42,9 +42,9 @@ int main(int argc, char* argv) {
             std::cin >> ID;
             int j = ID * 10 + selection;
             bool n = WriteFile(
-                hChannel, 
-                &j, 
-                sizeof(j), 
+                hChannel,
+                &j,
+                sizeof(j),
                 &record,
                 NULL);
             if (n) {
@@ -55,9 +55,9 @@ int main(int argc, char* argv) {
             }
             employee* empl = new employee();
             ReadFile(
-                hChannel, 
-                empl, 
-                sizeof(employee), 
+                hChannel,
+                empl,
+                sizeof(employee),
                 &reading,
                 NULL);
 
@@ -67,9 +67,9 @@ int main(int argc, char* argv) {
             std::cout << "Enter new hours:\n";
             std::cin >> empl->hours;
             n = WriteFile(
-                hChannel, 
-                empl, 
-                sizeof(employee), 
+                hChannel,
+                empl,
+                sizeof(employee),
                 &record,
                 NULL);
             if (n) {
@@ -91,10 +91,10 @@ int main(int argc, char* argv) {
             std::cin >> ID;
             int j = ID * 10 + selection;
             bool checker = WriteFile(
-                hChannel, 
-                &j, 
-                sizeof(j), 
-                &record, 
+                hChannel,
+                &j,
+                sizeof(j),
+                &record,
                 NULL);
             if (checker) {
                 std::cout << "Message sent.\n";
@@ -104,10 +104,10 @@ int main(int argc, char* argv) {
             }
             employee* empl = new employee();
             ReadFile(
-                hChannel, 
-                empl, 
-                sizeof(employee), 
-                &reading, 
+                hChannel,
+                empl,
+                sizeof(employee),
+                &reading,
                 NULL);
 
             std::cout << "Employee ID: " << empl->num << "\nEmployee name: " << empl->name << "\nEmployee working hours: " << empl->hours << "\n";

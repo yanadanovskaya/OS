@@ -9,85 +9,87 @@ HANDLE* hStarted;
 
 struct employee
 {
-	int num; 
-	char name[10]; 
-	double hours; 
+	int num;
+	char name[10];
+	double hours;
 };
 
 HANDLE* hChannel;
 HANDLE* hThreads;
 HANDLE* hSemaphore;
 employee* empl;
-int number_of_employees;
-int number_of_clients;
-std::string file_name;
+int quantity_empl;
+int quantity_clients;
+std::string fileName;
 
-DWORD WINAPI operations(LPVOID pipe) {
-	HANDLE hChannel = (HANDLE)pipe;
-	DWORD dwBytesRead; 
-	DWORD dwBytesWrite; 
+DWORD WINAPI operations(LPVOID channel) {
+	HANDLE hChannel = (HANDLE)channel;
+	DWORD bytesRead;
+	DWORD bytesWrite;
 
-	int message;
+	int m;
 	while (true) {
 		if (!ReadFile(
 			hChannel,
-			&message,
-			sizeof(message),
-			&dwBytesRead,
+			&m,
+			sizeof(m),
+			&bytesRead,
 			NULL))
-		{ }
+		{
+		}
 		else {
-			int ID = message / 10;
-			int chosen_option = message % 10;
-			if (chosen_option == 1) {
-				for (int i = 0; i < number_of_clients; i++)
+			int ID = m / 10;
+			int selection = m % 10;
+			if (selection == 1) {
+				for (int i = 0; i < quantity_clients; i++)
 				{
 					WaitForSingleObject(hSemaphore[ID - 1], INFINITE);
 				}
-				employee* emp_to_push = new employee();
-				emp_to_push->num = empl[ID - 1].num;
-				emp_to_push->hours = empl[ID - 1].hours;
-				strcpy_s(emp_to_push->name, empl[ID - 1].name);
-				bool checker = WriteFile(hChannel, emp_to_push, sizeof(employee), &dwBytesWrite, NULL);
+				employee* emp = new employee();
+				emp->num = empl[ID - 1].num;
+				emp->hours = empl[ID - 1].hours;
+				strcpy_s(emp->name, empl[ID - 1].name);
+				bool checker = WriteFile(hChannel, emp, sizeof(employee), &bytesWrite, NULL);
 				if (checker) {
-					std::cout << "Data to modify was sent.\n";
+					std::cout << "Data to change has been sent\n";
 				}
 				else {
-					std::cout << "Data to modify wasn't sent.\n";
+					std::cout << "Change data was not sent\n";
 				}
-				ReadFile(hChannel, emp_to_push, sizeof(employee), &dwBytesWrite, NULL);
-				empl[ID - 1].hours = emp_to_push->hours;
-				strcpy_s(empl[ID - 1].name, emp_to_push->name);
+				ReadFile(hChannel, emp, sizeof(employee), &bytesWrite, NULL);
+
+				empl[ID - 1].hours = emp->hours;
+				strcpy_s(empl[ID - 1].name, emp->name);
 				std::ofstream file;
-				file.open(file_name);
-				for (int i = 0; i < number_of_employees; i++)
+				file.open(fileName);
+				for (int i = 0; i < quantity_empl; i++)
 					file << empl[i].num << " " << empl[i].name << " " << empl[i].hours << "\n";
 				file.close();
 				int msg;
-				ReadFile(hChannel, &msg, sizeof(msg), &dwBytesWrite, NULL);
+				ReadFile(hChannel, &msg, sizeof(msg), &bytesWrite, NULL);
 				if (msg == 1) {
-					for (int i = 0; i < number_of_clients; i++)
+					for (int i = 0; i < quantity_clients; i++)
 					{
 						ReleaseSemaphore(hSemaphore[ID - 1], 1, NULL);
 					}
 				}
 			}
-			if (chosen_option == 2) {
+			if (selection == 2) {
 
 				WaitForSingleObject(hSemaphore[ID - 1], INFINITE);
-				employee* emp_to_push = new employee();
-				emp_to_push->num = empl[ID - 1].num;
-				emp_to_push->hours = empl[ID - 1].hours;
-				strcpy_s(emp_to_push->name, empl[ID - 1].name);
-				bool checker = WriteFile(hChannel, emp_to_push, sizeof(employee), &dwBytesWrite, NULL);
+				employee* emp = new employee();
+				emp->num = empl[ID - 1].num;
+				emp->hours = empl[ID - 1].hours;
+				strcpy_s(emp->name, empl[ID - 1].name);
+				bool checker = WriteFile(hChannel, emp, sizeof(employee), &bytesWrite, NULL);
 				if (checker) {
-					std::cout << "Data to read was sent.\n";
+					std::cout << "Read data has been sent\n";
 				}
 				else {
-					std::cout << "Data to read wasn't sent.\n";
+					std::cout << "Read data was not sent\n";
 				}
 				int msg;
-				ReadFile(hChannel, &msg, sizeof(msg), &dwBytesWrite, NULL);
+				ReadFile(hChannel, &msg, sizeof(msg), &bytesWrite, NULL);
 				if (msg == 1)
 					ReleaseSemaphore(hSemaphore[ID - 1], 1, NULL);
 			}
@@ -99,50 +101,51 @@ DWORD WINAPI operations(LPVOID pipe) {
 }
 
 int main() {
-	std::cout << "Input file name:\n";
-	//std::cin >> file_name;
-	file_name = "emps.txt";
-	std::cout << "Input number of employees:\n";
-	//std::cin >> number_of_employees;
-	number_of_employees = 3;
+	std::cout << "Enter file name:\n";
+	std::cin >> fileName;
+	fileName = "employees.txt";
+	std::cout << "Enter the number of employees:\n";
+	std::cin >> quantity_empl;
+	quantity_empl = 3;
 	std::ofstream file;
-	empl = new employee[number_of_employees];
-	for (int i = 0; i < number_of_employees; i++)
+	empl = new employee[quantity_empl];
+	for (int i = 0; i < quantity_empl; i++)
 	{
-		std::cout << "Input " << i + 1 << " employee id:\n";
+		std::cout << "Enter " << i + 1 << " employee ID:\n";
 		std::cin >> empl[i].num;
-		std::cout << "Input employee name:\n";
+		std::cout << "Enter employee name:\n";
 		std::string tmp;
 		std::cin >> empl[i].name;
-		std::cout << "Input employee hours:\n";
+		std::cout << "Enter employee hours:\n";
 		std::cin >> empl[i].hours;
 	}
-	file.open(file_name);
-	for (int i = 0; i < number_of_employees; i++)
+	file.open(fileName);
+	for (int i = 0; i < quantity_empl; i++)
 		file << empl[i].num << " " << empl[i].name << " " << empl[i].hours << "\n";
 	file.close();
 	std::ifstream file_input;
-	file_input.open(file_name);
-	for (int i = 0; i < number_of_employees; i++)
+	file_input.open(fileName);
+	for (int i = 0; i < quantity_empl; i++)
 	{
 		int id;
 		char name[10];
 		double hours;
 		file_input >> id >> name >> hours;
-		std::cout << "\nID of employee: " << id << ".\nName of employee: " << name << ".\nHours of employee: " << hours << ".\n";
+		std::cout << "\nEmployee ID: " << id << "\nEmployee name: " << name << "\nEmployee working hours: " << hours << "\n";
 
 	}
 	file_input.close();
 
-	std::cout << "Input number of clients:\n";
-	std::cin >> number_of_clients;
-	hStarted = new HANDLE[number_of_clients];
-	hSemaphore = new HANDLE[number_of_employees];
-	for (int i = 0; i < number_of_employees; i++)
+	std::cout << "Enetr number of clients:\n";
+	std::cin >> quantity_clients;
+
+	hStarted = new HANDLE[quantity_clients];
+	hSemaphore = new HANDLE[quantity_empl];
+	for (int i = 0; i < quantity_empl; i++)
 	{
-		hSemaphore[i] = CreateSemaphore(NULL, number_of_clients, number_of_clients, L"hSemahpore");
+		hSemaphore[i] = CreateSemaphore(NULL, quantity_clients, quantity_clients, L"hSemahpore");
 	}
-	for (int i = 0; i < number_of_clients; ++i)
+	for (int i = 0; i < quantity_clients; ++i)
 	{
 		STARTUPINFO si;
 		PROCESS_INFORMATION pi;
@@ -152,43 +155,45 @@ int main() {
 		ZeroMemory(&si, sizeof(STARTUPINFO));
 		si.cb = sizeof(STARTUPINFO);
 		CreateProcess(NULL, clientCmdLine, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
-		hStarted[i] = CreateEvent(NULL, FALSE, FALSE, L"Process Started");
+		hStarted[i] = CreateEvent(NULL, FALSE, FALSE, L"Event");
 		CloseHandle(pi.hProcess);
 	}
-	WaitForMultipleObjects(number_of_clients, hStarted, TRUE, INFINITE);
-	hChannel = new HANDLE[number_of_clients];
-	hThreads = new HANDLE[number_of_clients];
-	for (int i = 0; i < number_of_clients; i++)
+	WaitForMultipleObjects(quantity_clients, hStarted, TRUE, INFINITE);
+	hChannel = new HANDLE[quantity_clients];
+	hThreads = new HANDLE[quantity_clients];
+
+	for (int i = 0; i < quantity_clients; i++)
 	{
-		hChannel[i] = CreateNamedPipe(L"\\\\.\\pipe\\pipe_name", PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, 0, 0, INFINITE, NULL);
+		hChannel[i] = CreateNamedPipe(L"\\\\.\\channel\\channelName", PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, 0, 0, INFINITE, NULL);
 		if (hChannel == INVALID_HANDLE_VALUE)
 		{
-			std::cout << "Creation of the named pipe failed.\n The last error code: " << GetLastError() << "\n";
-			std::cout << "Press any char to finish server: ";
+			std::cout << "Failed to create named channel.\nLast error code: " << GetLastError() << "\n";
+			std::cout << "Click any symbol to shut down the server: ";
 			_getch();
 			return (0);
 		}
 		if (!ConnectNamedPipe(hChannel[i], (LPOVERLAPPED)NULL))
 		{
-			std::cout << "The connection failed.\nThe last error code: " << GetLastError() << "\n";
+			std::cout << "Connection failed.\nLast error code: " << GetLastError() << "\n";
 			CloseHandle(hChannel[i]);
-			std::cout << "Press any char to finish the server: ";
+			std::cout << "Click any symbol to shut down the server: ";
 			_getch();
 			return (0);
 		}
 		hThreads[i] = CreateThread(NULL, 0, operations, static_cast<LPVOID>(hChannel[i]), 0, NULL);
 
 	}
-	WaitForMultipleObjects(number_of_clients, hThreads, TRUE, INFINITE);
-	std::cout << "All clients has ended their work.";
-	file_input.open(file_name);
-	for (int i = 0; i < number_of_employees; i++)
+	WaitForMultipleObjects(quantity_clients, hThreads, TRUE, INFINITE);
+
+	std::cout << "All clients have completed their work.";
+	file_input.open(fileName);
+	for (int i = 0; i < quantity_empl; i++)
 	{
 		int id;
 		char name[10];
 		double hours;
 		file_input >> id >> name >> hours;
-		std::cout << "\nID of employee: " << id << ".\nName of employee: " << name << ".\nHours of employee: " << hours << ".\n";
+		std::cout << "\nEmployee ID: " << id << "\nEmployee name: " << name << "\nEmployee working hours: " << hours << "\n";
 
 	}
 	file_input.close();
